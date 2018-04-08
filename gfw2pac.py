@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import re
@@ -12,7 +12,9 @@ import logging
 import urllib2
 from argparse import ArgumentParser
 
+
 gfwlist_url = 'https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt'
+
 
 def parse_args():
     parser = ArgumentParser()
@@ -33,52 +35,56 @@ def parse_args():
                         help='delegated-apnic-latest from apnic.net')
     return parser.parse_args()
 
-#from https://github.com/Leask/Flora_Pac
+
+# from https://github.com/Leask/Flora_Pac
 def ip2long(ip):
     packedIP = socket.inet_aton(ip)
     return struct.unpack("!L", packedIP)[0]
 
-#from https://github.com/Leask/Flora_Pac
+
+# from https://github.com/Leask/Flora_Pac
 def fetch_ip_data():
     args = parse_args()
     if (args.ip_file):
         with open(args.ip_file, 'rb') as f:
             data = f.read()
     else:
-        #fetch data from apnic
+        # fetch data from apnic
         print "Fetching data from apnic.net, it might take a few minutes, please wait..."
-        url=r'http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest'
-      # url=r'http://flora/delegated-apnic-latest' #debug
-        data=urllib2.urlopen(url).read()
+        url = r'http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest'
+        # url=r'http://flora/delegated-apnic-latest' #debug
+        data = urllib2.urlopen(url).read()
 
-    cnregex=re.compile(r'apnic\|cn\|ipv4\|[0-9\.]+\|[0-9]+\|[0-9]+\|a.*',re.IGNORECASE)
-    cndata=cnregex.findall(data)
+    cnregex = re.compile(r'apnic\|cn\|ipv4\|[0-9\.]+\|[0-9]+\|[0-9]+\|a.*', re.IGNORECASE)
+    cndata = cnregex.findall(data)
 
-    results=[]
-    prev_net=''
+    results = []
+    prev_net = ''
 
     for item in cndata:
-        unit_items=item.split('|')
-        starting_ip=unit_items[3]
-        num_ip=int(unit_items[4])
+        unit_items = item.split('|')
+        starting_ip = unit_items[3]
+        num_ip = int(unit_items[4])
 
-        imask=0xffffffff^(num_ip-1)
-        #convert to string
-        imask=hex(imask)[2:]
-        mask=[0]*4
-        mask[0]=imask[0:2]
-        mask[1]=imask[2:4]
-        mask[2]='0' #imask[4:6]
-        mask[3]='0' #imask[6:8]
+        imask = 0xffffffff ^ (num_ip - 1)
+        # convert to string
+        imask = hex(imask)[2:]
+        mask = [0]*4
+        mask[0] = imask[0:2]
+        mask[1] = imask[2:4]
+        # imask[4:6]
+        mask[2] = '0'
+        # imask[6:8]
+        mask[3] = '0'
 
-        #convert str to int
-        mask=[ int(i,16 ) for i in mask]
-        mask="%d.%d.%d.%d"%tuple(mask)
+        # convert str to int
+        mask = [int(i, 16) for i in mask]
+        mask = "%d.%d.%d.%d" % tuple(mask)
 
-        #mask in *nix format
-        mask2=32-int(math.log(num_ip,2))
+        # mask in *nix format
+        mask2 = 32 - int(math.log(num_ip, 2))
 
-        ip=starting_ip.split('.')
+        ip = starting_ip.split('.')
         ip[2] = '0'
         ip[3] = '0'
         starting_ip = '.'.join(ip)
@@ -90,11 +96,13 @@ def fetch_ip_data():
     results.insert(1, (ip2long('10.0.0.0'),    ip2long('255.0.0.0'),   0))
     results.insert(2, (ip2long('172.16.0.0'),  ip2long('255.240.0.0'), 0))
     results.insert(3, (ip2long('192.168.0.0'), ip2long('255.255.0.0'), 0))
+
     def ip(item):
         return item[0]
 
-    results = sorted(results, key = ip)
+    results = sorted(results, key=ip)
     return results
+
 
 def decode_gfwlist(content):
     # decode base64 if have to
@@ -102,8 +110,10 @@ def decode_gfwlist(content):
         if '.' in content:
             raise Exception()
         return content.decode('base64')
-    except:
+    except Exception as e:
+        logging.error(e)
         return content
+
 
 def get_hostname(something):
     try:
@@ -116,16 +126,19 @@ def get_hostname(something):
         logging.error(e)
         return None
 
+
 def add_domain_to_set(s, something):
     hostname = get_hostname(something)
     if hostname is not None:
         s.add(hostname)
+
 
 def combine_lists(content, user_rule=None):
     gfwlist = content.splitlines(False)
     if user_rule:
         gfwlist.extend(user_rule.splitlines(False))
     return gfwlist
+
 
 def parse_gfwlist(gfwlist):
     domains = set()
@@ -149,6 +162,7 @@ def parse_gfwlist(gfwlist):
             continue
         add_domain_to_set(domains, line)
     return domains
+
 
 def reduce_domains(domains):
     # reduce 'www.google.com' to 'google.com'
@@ -185,6 +199,7 @@ def reduce_domains(domains):
             uni_domains.add(domain)
     return uni_domains
 
+
 def generate_pac_fast(domains, proxy, direct_domains, cnips):
     # render the pac file
     with open('./pac-template', 'rb') as f:
@@ -213,6 +228,7 @@ def generate_pac_fast(domains, proxy, direct_domains, cnips):
         )
 
     return proxy_content
+
 
 def generate_pac_precise(rules, proxy):
     def grep_rule(rule):
@@ -278,6 +294,7 @@ def main():
 
     with open(args.output, 'wb') as f:
         f.write(pac_content)
+
 
 if __name__ == '__main__':
     main()
