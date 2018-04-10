@@ -214,7 +214,7 @@ def generate_pac_fast(domains, proxy, direct_domains, cnips):
     )
 
     direct_domains_dict = {}
-    if direct_domains:
+    if direct_domains or direct_domains == []:
         for domain in direct_domains:
             direct_domains_dict[domain] = 1
         proxy_content = proxy_content.replace(
