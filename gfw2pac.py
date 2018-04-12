@@ -10,16 +10,15 @@ import urlparse
 import json
 import logging
 import urllib2
-from argparse import ArgumentParser
+import argparse
 
 
 gfwlist_url = 'https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt'
 
 
 def parse_args():
-    parser = ArgumentParser()
-    parser.add_argument('-i', '--input', dest='input',
-                        help='path to gfwlist', metavar='GFWLIST')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--input', help='path to gfwlist', metavar='gfwlist')
     parser.add_argument('-f', '--file', dest='output', required=True,
                         help='path to output pac', metavar='PAC')
     parser.add_argument('-p', '--proxy', dest='proxy', required=True,
@@ -46,7 +45,7 @@ def ip2long(ip):
 def fetch_ip_data():
     args = parse_args()
     if (args.ip_file):
-        with open(args.ip_file, 'rb') as f:
+        with open(args.ip_file, 'r') as f:
             data = f.read()
     else:
         # fetch data from apnic
@@ -167,7 +166,7 @@ def parse_gfwlist(gfwlist):
 def reduce_domains(domains):
     # reduce 'www.google.com' to 'google.com'
     # remove invalid domains
-    with open('./tld.txt', 'rb') as f:
+    with open('./tld.txt', 'r') as f:
             tld_content = f.read()
     tlds = set(tld_content.splitlines(False))
     new_domains = set()
@@ -202,7 +201,7 @@ def reduce_domains(domains):
 
 def generate_pac_fast(domains, proxy, direct_domains, cnips):
     # render the pac file
-    with open('./pac-template', 'rb') as f:
+    with open('./pac-template', 'r') as f:
         proxy_content = f.read()
     domains_dict = {}
     for domain in domains:
@@ -251,18 +250,19 @@ def generate_pac_precise(rules, proxy):
 def main():
     args = parse_args()
     user_rule = None
-    direct_rule = None
-    if (args.input):
-        with open(args.input, 'rb') as f:
+    direct_rule = []
+    if args.input:
+        with open(args.input, 'r') as f:
             content = f.read()
     else:
         print 'Downloading gfwlist from %s' % gfwlist_url
         content = urllib2.urlopen(gfwlist_url, timeout=10).read()
+
     if args.user_rule:
         userrule_parts = urlparse.urlsplit(args.user_rule)
         if not userrule_parts.scheme or not userrule_parts.netloc:
             # It's not an URL, deal it as local file
-            with open(args.user_rule, 'rb') as f:
+            with open(args.user_rule, 'r') as f:
                 user_rule = f.read()
         else:
             # Yeah, it's an URL, try to download it
@@ -273,15 +273,13 @@ def main():
         directrule_parts = urlparse.urlsplit(args.direct_rule)
         if not directrule_parts.scheme or not directrule_parts.netloc:
             # It's not an URL, deal it as local file
-            with open(args.direct_rule, 'rb') as f:
+            with open(args.direct_rule, 'r') as f:
                 direct_rule = f.read()
         else:
             # Yeah, it's an URL, try to download it
             print 'Downloading user rules file from %s' % args.user_rule
             direct_rule = urllib2.urlopen(args.direct_rule, timeout=10).read()
         direct_rule = direct_rule.splitlines(False)
-    else:
-        direct_rule = []
 
     cnips = fetch_ip_data()
 
@@ -292,7 +290,7 @@ def main():
     domains = reduce_domains(domains)
     pac_content = generate_pac_fast(domains, args.proxy, direct_rule, cnips)
 
-    with open(args.output, 'wb') as f:
+    with open(args.output, 'w') as f:
         f.write(pac_content)
 
 
